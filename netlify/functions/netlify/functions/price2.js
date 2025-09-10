@@ -3,7 +3,7 @@ function parseNumber(value, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-export const handler = async (event, context) => {
+export const handler = async (event) => {
   const params = event.queryStringParameters || {};
 
   const checkin = params.checkin || new Date(Date.now() + 7*24*60*60*1000).toISOString().slice(0,10);
@@ -23,22 +23,20 @@ export const handler = async (event, context) => {
   const taxes = subtotal * TAX_RATE;
   const total = Math.round((subtotal + taxes) * 100) / 100;
 
-  const body = {
-    inputs: { checkin, nights, guests },
-    breakdown: {
-      base_price_per_night: BASE_PRICE_PER_NIGHT,
-      discount_applied: Number(discount.toFixed(3)),
-      cleaning_fee: CLEANING_FEE,
-      tax_rate: TAX_RATE,
-    },
-    total_price: total,
-    currency: process.env.CURRENCY || "EUR",
-    note: "Netlify Functions - starter logic."
-  };
-
   return {
     statusCode: 200,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
+    body: JSON.stringify({
+      inputs: { checkin, nights, guests },
+      breakdown: {
+        base_price_per_night: BASE_PRICE_PER_NIGHT,
+        discount_applied: Number(discount.toFixed(3)),
+        cleaning_fee: CLEANING_FEE,
+        tax_rate: TAX_RATE
+      },
+      total_price: total,
+      currency: process.env.CURRENCY || "EUR",
+      note: "Netlify Functions - starter logic."
+    })
   };
 };
