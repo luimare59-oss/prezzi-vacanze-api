@@ -2,30 +2,197 @@
 <html lang="it">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Prezzi Vacanze – API</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prezzi Vacanze · API & Console</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 40px; }
-    code, a { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 20px; max-width: 800px; }
-    h1 { margin-top: 0; }
-    ul { line-height: 1.8; }
+    :root { --bg:#0b1320; --card:#111a2b; --muted:#91a1bb; --text:#e7edf7; --ok:#1faa8a; --warn:#f5b301; --bad:#e24949; --line:#243049; }
+    * { box-sizing: border-box }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background: var(--bg); color: var(--text); }
+    header { padding: 28px 20px; text-align: center; border-bottom:1px solid var(--line); }
+    header h1 { margin:0 0 6px; font-weight:700; letter-spacing:.2px; }
+    header p { margin:0; color: var(--muted); }
+    .wrap { max-width: 1100px; margin: 28px auto; padding: 0 16px; display: grid; gap: 16px; grid-template-columns: 1fr; }
+    @media (min-width: 960px){ .wrap{ grid-template-columns: 360px 1fr; } }
+    .card { background: var(--card); border:1px solid var(--line); border-radius: 14px; padding: 16px; }
+    .card h2 { margin:0 0 10px; font-size: 18px; }
+    label { display:block; font-size: 13px; color: var(--muted); margin: 10px 0 6px; }
+    input, select, textarea { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:#0e1727; color:var(--text); outline:none; }
+    .row { display:grid; gap:10px; grid-template-columns: 1fr 1fr; }
+    .btns { display:flex; gap:10px; margin-top: 12px; flex-wrap: wrap; }
+    button, .linkbtn { cursor:pointer; border:none; border-radius:10px; padding:10px 14px; background:#1b2741; color:var(--text); border:1px solid var(--line); }
+    button.primary { background:#21335a; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    table { width:100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding:10px 8px; border-bottom:1px solid var(--line); vertical-align: top; }
+    th { text-align:left; color: var(--muted); font-weight:600; }
+    .pill { display:inline-block; padding:2px 8px; border-radius: 999px; border:1px solid var(--line); color: var(--muted); font-size: 12px; margin-right:6px; margin-bottom:4px; white-space: nowrap; }
+    .flag-ok { color:#0f5132; background:#d1f1e7; border-color:#b6e6d7; }
+    .flag-pos { color:#5c2d03; background:#ffe6bf; border-color:#ffd28a; }
+    .flag-neg { color:#5e1111; background:#ffd7d7; border-color:#ffb3b3; }
+    .muted { color: var(--muted); font-size: 13px; }
+    footer { text-align:center; color:var(--muted); padding: 22px 10px; }
+    .hint { font-size:12px; color: var(--muted); margin-top: 6px; }
+    .api-links a{ color:#9ec5ff; text-decoration: none; margin-right: 10px;}
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Prezzi Vacanze – API</h1>
-    <p>Benvenuto! Questo sito espone API serverless su Netlify.</p>
+  <header>
+    <h1>Prezzi Vacanze · Console</h1>
+    <p>Calcolo prezzi & confronto OTA (Airbnb, Booking, Vrbo) – alimentato dalle tue API Netlify.</p>
+  </header>
 
-    <h2>Endpoint rapidi</h2>
-    <ul>
-      <li><a href="/api/health">/api/health</a></li>
-      <li><a href="/api/price">/api/price</a></li>
-      <li><a href="/api/compare?checkin=2025-10-15&nights=5&guests=3">/api/compare?checkin=2025-10-15&nights=5&guests=3</a></li>
-      <li><a href="/api/compare?start=2025-12-20&end=2025-12-26&nights=3&guests=2&format=csv">/api/compare…&format=csv</a></li>
-    </ul>
+  <div class="wrap">
+    <!-- Pannello sinistro: Form -->
+    <div class="card">
+      <h2>Parametri</h2>
+      <label>Check-in</label>
+      <input type="date" id="checkin" />
+      <div class="row">
+        <div>
+          <label>Notti</label>
+          <input type="number" id="nights" min="1" value="3" />
+        </div>
+        <div>
+          <label>Ospiti</label>
+          <input type="number" id="guests" min="1" value="2" />
+        </div>
+      </div>
 
-    <p>Se hai impostato una <code>API_KEY</code>, aggiungi <code>&key=LA_TUA_CHIAVE</code> agli URL.</p>
+      <h2 style="margin-top:14px;">Parità</h2>
+      <div class="row">
+        <div>
+          <label>Baseline</label>
+          <select id="baseline">
+            <option>Booking.com</option>
+            <option>Airbnb</option>
+            <option>Vrbo</option>
+          </select>
+        </div>
+        <div>
+          <label>Tolleranza (±)</label>
+          <input type="number" id="tol" min="0" step="0.005" value="0.02" />
+          <div class="hint">0.02 = 2%</div>
+        </div>
+      </div>
+
+      <h2 style="margin-top:14px;">Più date (opzionale)</h2>
+      <label>Elenco date (CSV)</label>
+      <input type="text" id="dates" placeholder="2025-12-20,2025-12-23,2025-12-26" />
+      <div class="row">
+        <div>
+          <label>Intervallo: start</label>
+          <input type="date" id="start" />
+        </div>
+        <div>
+          <label>Intervallo: end</label>
+          <input type="date" id="end" />
+        </div>
+      </div>
+
+      <h2 style="margin-top:14px;">Sicurezza (opzionale)</h2>
+      <label>API key</label>
+      <input type="password" id="key" placeholder="Se impostata in Netlify, mettila qui" />
+
+      <div class="btns">
+        <button class="primary" id="runBtn">Calcola</button>
+        <button id="csvBtn">Scarica CSV</button>
+      </div>
+
+      <div class="api-links hint" style="margin-top:12px">
+        Link rapidi API:
+        <a href="/api/health" target="_blank">/api/health</a>
+        <a href="/api/price" target="_blank">/api/price</a>
+        <a href="/api/compare?checkin=2025-10-15&nights=5&guests=3" target="_blank">/api/compare?checkin=…</a>
+      </div>
+    </div>
+
+    <!-- Pannello destro: Risultati -->
+    <div class="card">
+      <h2>Risultati</h2>
+      <div id="status" class="muted">Compila i campi e premi “Calcola”.</div>
+      <div id="tableWrap" style="overflow:auto; margin-top:10px;"></div>
+    </div>
   </div>
+
+  <footer>© <span id="y"></span> · Prezzi Vacanze</footer>
+
+  <script>
+    document.getElementById("y").textContent = new Date().getFullYear();
+
+    function q(sel){ return document.querySelector(sel); }
+    function buildURL(base){
+      const p = new URLSearchParams();
+      const ci = q("#checkin").value.trim();
+      const nights = q("#nights").value.trim();
+      const guests = q("#guests").value.trim();
+      const baseline = q("#baseline").value.trim();
+      const tol = q("#tol").value.trim();
+      const dates = q("#dates").value.trim();
+      const start = q("#start").value.trim();
+      const end = q("#end").value.trim();
+      const key = q("#key").value.trim();
+
+      if (dates) p.set("dates", dates);
+      else if (start && end) { p.set("start", start); p.set("end", end); }
+      else if (ci) p.set("checkin", ci);
+
+      if (nights) p.set("nights", nights);
+      if (guests) p.set("guests", guests);
+      if (baseline) p.set("baseline", baseline);
+      if (tol) p.set("tol", tol);
+      if (key) p.set("key", key);
+
+      return base + "?" + p.toString();
+    }
+
+    q("#runBtn").addEventListener("click", async () => {
+      const url = buildURL("/api/compare");
+      q("#status").textContent = "Carico…";
+      q("#tableWrap").innerHTML = "";
+      try {
+        const res = await fetch(url, { headers: { "Accept":"application/json" }});
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const rows = await res.json();
+        q("#status").textContent = `OK – righe: ${rows.length}`;
+        renderTable(rows);
+      } catch (e) {
+        q("#status").textContent = "Errore: " + e.message;
+      }
+    });
+
+    q("#csvBtn").addEventListener("click", () => {
+      const url = buildURL("/api/compare") + "&format=csv";
+      window.open(url, "_blank");
+    });
+
+    function renderTable(rows){
+      if (!rows || !rows.length) { q("#tableWrap").innerHTML = "<p class='muted'>Nessun dato.</p>"; return; }
+      const headers = Object.keys(rows[0]);
+      const head = "<thead><tr>" + headers.map(h => `<th>${escapeHtml(h)}</th>`).join("") + "</tr></thead>";
+      const body = "<tbody>" + rows.map(r => {
+        return "<tr>" + headers.map(h => {
+          let v = r[h];
+          if (h.startsWith("Parità vs")) {
+            const cls = v === "OK" ? "flag-ok" : (String(v).startsWith("+") ? "flag-pos" : "flag-neg");
+            return `<td><span class="pill ${cls}">${escapeHtml(v)}</span></td>`;
+          }
+          if (h === "Offerte applicate" && v) {
+            return `<td>` + String(v).split(" + ").map(x => `<span class="pill">${escapeHtml(x)}</span>`).join(" ") + `</td>`;
+          }
+          return `<td>${escapeHtml(v)}</td>`;
+        }).join("") + "</tr>";
+      }).join("") + "</tbody>";
+      q("#tableWrap").innerHTML = `<table>${head}${body}</table>`;
+    }
+
+    function escapeHtml(x){
+      if (x===null || x===undefined) return "";
+      return String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    // default check-in = oggi + 7
+    const d = new Date(Date.now() + 7*24*60*60*1000);
+    q("#checkin").value = d.toISOString().slice(0,10);
+  </script>
 </body>
 </html>
