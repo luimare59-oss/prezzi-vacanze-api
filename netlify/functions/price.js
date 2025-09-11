@@ -1,14 +1,18 @@
 function parseNumber(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
-function daysBetween(a, b) { return Math.ceil((b - a) / (1000*60*60*24)); }
+function daysAheadFromToday(checkinStr) {
+  const today = new Date();
+  const ci = new Date(checkinStr + "T12:00:00");
+  const ms = ci - today;
+  return Math.ceil(ms / (1000*60*60*24)); // positivo se check-in è nel futuro
+}
 
 export const handler = async (event) => {
   const p = event.queryStringParameters || {};
-  const today = new Date();
   const checkin = p.checkin || new Date(Date.now() + 7*24*60*60*1000).toISOString().slice(0,10);
   const nights  = parseNumber(p.nights, 3);
   const guests  = parseNumber(p.guests, 2);
 
-  // Base settings
+  // Base
   const BASE_PRICE = parseNumber(process.env.BASE_PRICE_PER_NIGHT, 100);
   const CLEANING   = parseNumber(process.env.CLEANING_FEE, 40);
   const TAX_RATE   = parseNumber(process.env.TAX_RATE, 0.05);
@@ -19,27 +23,24 @@ export const handler = async (event) => {
   const BKNG_FEE   = parseNumber(process.env.BOOKING_COMMISSION_RATE, 0.15); // 15%
   const VRBO_FEE   = parseNumber(process.env.VRBO_HOST_FEE_RATE, 0.08);    // 8%
 
-  // Promozioni semplici
+  // Promo semplici (configurabili)
   const EARLY_BIRD = parseNumber(process.env.EARLY_BIRD_RATE, 0.10); // se >30 gg
   const LAST_MIN   = parseNumber(process.env.LAST_MINUTE_RATE, 0.05); // se <=7 gg
+  const days_ahead = daysAheadFromToday(checkin);
 
-  // Calcolo sconti “globali” (prima delle OTA)
-  const ciDate = new Date(checkin + "T12:00:00");
-  const daysAhead = daysBetween(ciDate, today);
   let promo = 0;
-  if (daysAhead > 30) promo += EARLY_BIRD;
-  if (daysAhead <= 7) promo += LAST_MIN;
-  if (nights >= 7) promo += 0.10;       // weekly extra esempio
-  if (guests >= 4) promo += 0.05;       // group esempio
+  if (days_ahead > 30) promo += EARLY_BIRD;
+  if (days_ahead <= 7) promo += LAST_MIN;
+  if (nights >= 7) promo += 0.10;   // esempio weekly
+  if (guests >= 4) promo += 0.05;   // esempio gruppi
 
-  const netNight = BASE_PRICE * (1 - promo);
-  const subtotal = netNight * nights + CLEANING;
-  const taxes    = subtotal * TAX_RATE;
+  const netNight  = BASE_PRICE * (1 - promo);
+  const subtotal  = netNight * nights + CLEANING;
+  const taxes     = subtotal * TAX_RATE;
   const guestTotal = +(subtotal + taxes).toFixed(2);
 
-  // Helper per OTA
   const line = (ota, hostFeeRate) => {
-    const hostFee = +(guestTotal * hostFeeRate).toFixed(2);
+    const hostFee    = +(guestTotal * hostFeeRate).toFixed(2);
     const hostPayout = +(guestTotal - hostFee).toFixed(2);
     return {
       ota,
@@ -55,17 +56,16 @@ export const handler = async (event) => {
     };
   };
 
-  const result = {
-    inputs: { checkin, nights, guests, days_ahead: daysAhead },
+  const body = {
+    inputs: { checkin, nights, guests, days_ahead },
     currency: CURRENCY,
     rows: [
       line("Airbnb", AIRBNB_FEE),
       line("Booking.com", BKNG_FEE),
       line("Vrbo", VRBO_FEE),
     ],
-    note: "Esempio: promo e commissioni configurabili via Env Vars. Adeguare valori secondo i tuoi contratti."
+    note: "Esempio: promo e commissioni configurabili via Environment Variables."
   };
 
-  return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify(result) };
+  return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 };
-
