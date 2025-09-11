@@ -1,0 +1,4 @@
+/api/health   /.netlify/functions/health   200
+/api/price    /.netlify/functions/price    200
+/api/compare  /.netlify/functions/compare  200
+/api/:name    /.netlify/functions/:name    200
