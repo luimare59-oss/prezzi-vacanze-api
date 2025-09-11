@@ -2,9 +2,14 @@ function n(v, d) { const x = Number(v); return Number.isFinite(x) ? x : d; }
 function daysAhead(checkinStr) {
   const today = new Date();
   const ci = new Date(checkinStr + "T12:00:00");
+  return Math.ceil((ci - today) / (1000*60*60*1000*24)); // oops: fix hours to 24? Actually should be 1000*60*60*24
+}
+// FIX: correct milliseconds per day
+function daysAheadFixed(checkinStr) {
+  const today = new Date();
+  const ci = new Date(checkinStr + "T12:00:00");
   return Math.ceil((ci - today) / (1000*60*60*24));
 }
-
 function computeRows({ checkin, nights, guests, env }) {
   const BASE      = n(env.BASE_PRICE_PER_NIGHT, 100);
   const CLEANING  = n(env.CLEANING_FEE, 40);
@@ -13,7 +18,7 @@ function computeRows({ checkin, nights, guests, env }) {
 
   const EARLY     = n(env.EARLY_BIRD_RATE, 0.10);
   const LASTMIN   = n(env.LAST_MINUTE_RATE, 0.05);
-  const dAhead    = daysAhead(checkin);
+  const dAhead    = daysAheadFixed(checkin);
 
   const cfg = [
     { ota: "Airbnb",      host: n(env.AIRBNB_HOST_FEE_RATE, 0.03),  guest: n(env.AIRBNB_GUEST_FEE_RATE, 0.12), promo: n(env.AIRBNB_PROMO_RATE, 0.00), label: "Promo Airbnb" },
@@ -68,11 +73,27 @@ function computeRows({ checkin, nights, guests, env }) {
   return rows;
 }
 
+function toCSV(rows) {
+  if (!rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const esc = (v) => {
+    if (v === null || v === undefined) return "";
+    const s = String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [
+    headers.join(","),
+    ...rows.map(r => headers.map(h => esc(r[h])).join(","))
+  ];
+  return lines.join("\n");
+}
+
 export const handler = async (event) => {
   const q = event.queryStringParameters || {};
   const checkin = q.checkin || new Date(Date.now() + 7*24*60*60*1000).toISOString().slice(0,10);
   const nights  = n(q.nights, 3);
   const guests  = n(q.guests, 2);
+  const format  = (q.format || "json").toLowerCase();
 
   const rows = computeRows({
     checkin, nights, guests,
@@ -94,6 +115,17 @@ export const handler = async (event) => {
       VRBO_PROMO_RATE: process.env.VRBO_PROMO_RATE,
     }
   });
+
+  if (format === "csv") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `inline; filename="compare_${checkin}_${nights}n_${guests}g.csv"`
+      },
+      body: toCSV(rows)
+    };
+  }
 
   return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify(rows) };
 };
