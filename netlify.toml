@@ -1,13 +1,14 @@
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
+[[redirects]]
+  from = "/api/price"
+  to = "/.netlify/functions/price"
+  status = 200
+
+[[redirects]]
+  from = "/api/compare"
+  to = "/.netlify/functions/compare"
+  status = 200
 
 [[redirects]]
   from = "/api/health"
   to = "/.netlify/functions/health"
-  status = 200
-
-[[redirects]]
-  from = "/api/price"
-  to = "/.netlify/functions/price"
   status = 200
